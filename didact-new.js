@@ -40,7 +40,7 @@ function DidactFactory(){
   let inProgressRoot = null
   let nextUnitOfWork = null
   let currentRoot = null
-  const deletions = []
+  let deletions = []
   function createDom(fiber){
       const {type,props={}} = fiber
       const dom = type===TEXT_ELEMENT?document.createTextNode(''):document.createElement(type);
@@ -56,16 +56,16 @@ function DidactFactory(){
 
 
       Object.keys(prevProps).filter(isEvent).forEach(item=>{
-        dom.removeEventListener(item.substring(2).toLowerCase(),props[item])
+        dom.removeEventListener(item.substring(2).toLowerCase(),prevProps[item])
       })
       Object.keys(prevProps).filter(isProperty).forEach(item=>{
         dom[item] = null
       })
       Object.keys(nextProps).filter(isEvent).forEach(item=>{
-        dom.addEventListener(item.substring(2).toLowerCase(),props[item])
+        dom.addEventListener(item.substring(2).toLowerCase(),nextProps[item])
       })
       Object.keys(nextProps).filter(isProperty).forEach(item=>{
-        dom[item] = props[item]
+        dom[item] = nextProps[item]
       })
       
   }
@@ -80,6 +80,7 @@ function DidactFactory(){
         },
         alternate: currentRoot
       }
+      deletions=[]
       nextUnitOfWork = inProgressRoot
   }
   // reconciliation函数是决定到底是新增节点 更新节点还是删除节点的地方 给节点打标记
@@ -89,7 +90,7 @@ function DidactFactory(){
     let index=0;
     let prevSibling = null;
     
-    while(index<elements.length||oldFiber!==null){
+    while(index<elements.length||oldFiber){
       let element = elements[index];
       let newFiber = null
       if(element&&oldFiber?.type!==element.type){
@@ -151,7 +152,6 @@ function DidactFactory(){
     else if(fiber.effectTag ==='DELETION'){
       if(fiber.return){
         fiber.return.dom.removeChild(fiber.dom)
-
       }
     }
     commitWork(fiber.child)
@@ -180,18 +180,30 @@ function DidactFactory(){
     requestIdleCallback(workLoop)
   }
   requestIdleCallback(workLoop)
+  function updateFunctionComponent(fiber){
+      const children =[ fiber.type(fiber.props)]
+      reconciliation(fiber,children)
+  }
+  function updateHostComponent(fiber){
+     if (!fiber.dom) {
+        fiber.dom = createDom(fiber)
+      }
+       // 组建出fiber树
+    const children = fiber.props.children
+    reconciliation(fiber,children)
+  }
   function performUnitOfWork(fiber){
-    if (!fiber.dom) {
-      fiber.dom = createDom(fiber)
-    }
+    // if (!fiber.dom) {
+    //   fiber.dom = createDom(fiber)
+    // }
+    typeof fiber.type==='string'?updateHostComponent(fiber):
+    updateFunctionComponent(fiber)
     // if(fiber.return){
         // 在这appendChild的话相当于遍历到节点才会渲染ui 万一中断ui不完整  找个地方统一提交全部的渲染
         // 我们可以从performUnitWork的遍历过程可以看出 当返回值为null时 说明整棵树遍历结束了 可以提交去渲染dom了
     //   fiber.return.dom.appendChild(fiber.dom)
     // }
-    // 组建出fiber树
-    const children = fiber.props.children
-    reconciliation(fiber,children)
+   
 
     // 接下来我们寻找下一个需要执行的工作单元 深度遍历一直按找到child返回child，没找到child就返回sibling，没找到sibling就返回上一层继续找sibling的方式寻找
     let currentRoot = fiber;
