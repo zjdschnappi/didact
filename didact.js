@@ -1,9 +1,11 @@
+const TEXT_ELEMENT = 'TEXT_ELEMENT'
 function createElement(type, props, ...children) {
+  const rawChildren = [].concat(...children)
   return {
     type,
     props: {
       ...props,
-      children: children.map(child =>
+      children: rawChildren.filter(item=>item!==null&&item!==undefined&&item!==false).map(child =>
         typeof child === "object"
           ? child
           : createTextElement(child)
@@ -14,7 +16,7 @@ function createElement(type, props, ...children) {
 
 function createTextElement(text) {
   return {
-    type: "TEXT_ELEMENT",
+    type: TEXT_ELEMENT,
     props: {
       nodeValue: text,
       children: [],
@@ -24,7 +26,7 @@ function createTextElement(text) {
 
 function createDom(fiber) {
   const dom =
-    fiber.type == "TEXT_ELEMENT"
+    fiber.type == TEXT_ELEMENT
       ? document.createTextNode("")
       : document.createElement(fiber.type)
 
@@ -39,7 +41,7 @@ const isProperty = key =>
 const isNew = (prev, next) => key =>
   prev[key] !== next[key]
 const isGone = (prev, next) => key => !(key in next)
-function updateDom(dom, prevProps, nextProps) {
+function updateDom(dom, prevProps={}, nextProps={}) {
   //Remove old or changed event listeners
   Object.keys(prevProps)
     .filter(isEvent)
@@ -270,9 +272,10 @@ function reconcileChildren(wipFiber, elements) {
       }
     }
     if (element && !sameType) {
+      const isTextElement = typeof element !== "object"
       newFiber = {
-        type: element.type,
-        props: element.props,
+        type: isTextElement?TEXT_ELEMENT:element.type,
+        props: isTextElement?createTextElement(element).props:element.props,
         dom: null,
         parent: wipFiber,
         alternate: null,
@@ -299,21 +302,28 @@ function reconcileChildren(wipFiber, elements) {
   }
 }
 
-const Didact = {
-  createElement,
-  render,
-  useState,
+window.DidactFactory= function DidactFactory(){
+  return {
+    createElement,
+    render,
+    useState
+  }
 }
+// const Didact = {
+//   createElement,
+//   render,
+//   useState,
+// }
 
-/** @jsx Didact.createElement */
-function Counter() {
-  const [state, setState] = Didact.useState(1)
-  return (
-    <h1 onClick={() => setState(c => c + 1)}>
-      Count: {state}
-    </h1>
-  )
-}
-const element = <Counter />
-const container = document.getElementById("root")
-Didact.render(element, container)
+// /** @jsx Didact.createElement */
+// function Counter() {
+//   const [state, setState] = Didact.useState(1)
+//   return (
+//     <h1 onClick={() => setState(c => c + 1)}>
+//       Count: {state}
+//     </h1>
+//   )
+// }
+// const element = <Counter />
+// const container = document.getElementById("root")
+// Didact.render(element, container)
