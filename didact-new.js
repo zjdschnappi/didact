@@ -41,6 +41,8 @@ function DidactFactory(){
   let nextUnitOfWork = null
   let currentRoot = null
   let deletions = []
+ 
+  
   function createDom(fiber){
       const {type,props={}} = fiber
       const dom = type===TEXT_ELEMENT?document.createTextNode(''):document.createElement(type);
@@ -68,6 +70,33 @@ function DidactFactory(){
         dom[item] = nextProps[item]
       })
       
+  }
+  function useState(initialValue){
+    let oldHook = wipFiber?.alternate?.hooks?.[hookIndex]
+    let hook = {
+      state:oldHook?oldHook.state:initialValue,
+      queue:[]
+    }
+    const actions = oldHook ? oldHook.queue : []
+    actions.forEach(action => {
+      hook.state = action(hook.state)
+    })
+
+    const setState=(action)=>{
+      hook.queue.push(action)
+      inProgressRoot={
+        type:currentRoot.type,
+        dom:currentRoot.dom,
+        props:currentRoot.props,
+        alternate: currentRoot
+      }
+
+      nextUnitOfWork = inProgressRoot
+      deletions = []
+    }
+    wipFiber.hooks.push(hook)
+    hookIndex++
+    return [hook.state,setState]
   }
   function render(element,container){
       const {type} = element
@@ -140,19 +169,24 @@ function DidactFactory(){
     if(!fiber){
       return 
     }
+    let domParentFiber = fiber.return
+    while (!domParentFiber.dom) {
+      domParentFiber = domParentFiber.return
+    }
+    const domParent = domParentFiber.dom
     if(fiber.effectTag === 'PLACEMENT'){
 
       if(fiber.return){
-        fiber.return.dom.appendChild(fiber.dom)
+        domParent.appendChild(fiber.dom)
       }
     }
     else if(fiber.effectTag==='UPDATE'){
       updateDom(fiber.dom,fiber.alternate.props,fiber.props)
     }
     else if(fiber.effectTag ==='DELETION'){
-      if(fiber.return){
-        fiber.return.dom.removeChild(fiber.dom)
-      }
+     
+        domParent.removeChild(fiber.dom)
+      
     }
     commitWork(fiber.child)
     commitWork(fiber.sibling)
@@ -161,7 +195,7 @@ function DidactFactory(){
   function commitRoot(){
     //
     deletions.forEach(commitWork)
-    commitWork(inProgressRoot)
+    commitWork(inProgressRoot.child)
     currentRoot = inProgressRoot
     inProgressRoot = null
 
@@ -180,8 +214,14 @@ function DidactFactory(){
     requestIdleCallback(workLoop)
   }
   requestIdleCallback(workLoop)
+
+  let hookIndex = 0
+  let wipFiber = null
   function updateFunctionComponent(fiber){
-      const children =[ fiber.type(fiber.props)]
+      hookIndex = 0
+      wipFiber = fiber
+      wipFiber.hooks = []
+      const children =[fiber.type(fiber.props)]
       reconciliation(fiber,children)
   }
   function updateHostComponent(fiber){
@@ -257,5 +297,6 @@ function DidactFactory(){
   return {
     render,
     createElement,
+    useState
   }
 }

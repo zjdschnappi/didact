@@ -3,14 +3,15 @@ const Didact = DidactFactory();
 
 const {render,useState} = Didact
 let arrs = ['apple','orange','banana','watermelon','strawberry','cherry','pear','pineapple']
-const handleClick = ()=>{
-  arrs= arrs.filter((item,index)=>index!==arrs.length-1)
-  render(
-    <Fruits/>,
-     document.getElementById('root'))
-}
+
 const Fruits = ()=>{
- 
+  const [arrs,setArrs]= useState(['apple','orange','banana','watermelon','strawberry','cherry','pear','pineapple'])
+  const handleClick = ()=>{
+    setArrs((prev)=>{
+      return prev.filter((item,index)=>index!==prev.length-1)
+    })
+    
+  }
   return  <div id='foo' >
   <span id='bar' style="color:red" onClick={handleClick}>
     {arrs.length}
